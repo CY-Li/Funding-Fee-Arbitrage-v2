@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python310", "python310Packages.pip"]
+nixPkgs = ["python310"]
 
 [phases.install]
 cmds = ["pip install -r requirements.txt"]
@@ -8,4 +8,4 @@ cmds = ["pip install -r requirements.txt"]
 cmds = ["echo 'Build completed'"]
 
 [start]
-cmd = "gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 app:app" 
+cmd = "python simple_start.py" 

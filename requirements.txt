@@ -2,19 +2,13 @@
 # You can install them using the command:
 # pip install -r requirements.txt
 
-# Production-ready web server for Zeabur
+# Core dependencies
+Flask==2.3.2
 gunicorn==20.1.0
-
-# Core trading logic
 ccxt==4.0.53
 python-dotenv==1.0.0
-
-# Web server and data handling
-Flask==2.3.2
-pandas==2.0.3
-numpy==1.24.3
 requests==2.31.0
-gevent==24.2.1
 
-# Additional dependencies that might be needed
-Werkzeug==2.3.7 
+# Data handling
+pandas==2.0.3
+numpy==1.24.3 
