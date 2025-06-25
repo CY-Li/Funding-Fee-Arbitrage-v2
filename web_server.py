@@ -16,6 +16,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 app = Flask(__name__)
 
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    """Simple health check endpoint"""
+    return jsonify({'status': 'healthy', 'message': 'Application is running'})
+
 # Define the path to the CSV file
 # This assumes web_server.py is run from the project root directory
 TRADE_HISTORY_FILE = 'trading_history.csv'

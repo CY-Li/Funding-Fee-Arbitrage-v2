@@ -111,4 +111,9 @@ def reload_config():
     load_config_from_file()
 
 # 初始化時加載配置
-load_config_from_file() 
+try:
+    load_config_from_file()
+except Exception as e:
+    print(f"Warning: Could not load config from file: {e}")
+    # 使用預設配置
+    pass 

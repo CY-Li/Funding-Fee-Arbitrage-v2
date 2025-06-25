@@ -18,4 +18,14 @@ README.md
 
 # Docker files
 Dockerfile
-.dockerignore 
+.dockerignore
+
+# Large data files (will be generated at runtime)
+all_funding_rates.csv
+analysis_summary.json
+trading_history.csv
+
+# Deployment check files
+deploy_check.py
+deploy_check_simple.py
+DEPLOYMENT_CHECK.md 
