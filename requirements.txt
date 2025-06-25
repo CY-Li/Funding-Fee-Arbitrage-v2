@@ -1,0 +1,17 @@
+# This file lists the Python packages required for the trading bot.
+# You can install them using the command:
+# pip install -r requirements.txt
+
+# Production-ready web server for Zeabur
+gunicorn==20.1.0
+
+# Core trading logic
+ccxt==4.0.53
+python-dotenv
+
+# Web server and data handling
+Flask==2.3.2
+pandas==2.0.3
+numpy
+requests==2.31.0
+gevent==24.2.1 

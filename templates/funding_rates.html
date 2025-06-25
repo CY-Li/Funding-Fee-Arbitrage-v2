@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>資金費率套利分析</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .table-container {
+            max-width: 1400px;
+            margin: auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: white;
+        }
+        .table thead th {
+            background-color: #343a40;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            white-space: nowrap;
+        }
+        .table td, .table th {
+            padding: 0.75rem 1.25rem;
+            vertical-align: middle;
+            white-space: nowrap;
+            font-size: 0.9rem;
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef;
+        }
+        .table .text-end { text-align: right !important; }
+        .table .text-start { text-align: left !important; }
+        
+        .opportunity-highlight { 
+            background-color: rgba(255, 193, 7, 0.1); 
+            font-weight: bold;
+        }
+        .nav-tabs {
+            margin-bottom: 0;
+            background-color: #f8f9fa;
+            border-bottom: none;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: white;
+            border-bottom-color: white;
+        }
+        .btn-update {
+            margin-bottom: 20px;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .error-message {
+            color: #dc3545;
+            font-style: italic;
+        }
+        .success-message {
+            color: #198754;
+            font-weight: bold;
+        }
+        .filter-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .filter-card .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: 600;
+        }
+        .filter-card .card-body {
+            padding: 1.5rem;
+        }
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+        .btn-group-filter .btn {
+            margin-right: 0.5rem;
+        }
+        .btn-group-filter .btn:last-child {
+            margin-right: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <h1 class="text-center mb-4">資金費率套利分析</h1>
+        <p class="text-center text-muted">分析 Gate.io 和 Bitget 之間的資金費率差異，尋找套利機會</p>
+        
+        <!-- 更新數據按鈕 -->
+        <div class="text-center btn-update">
+            <button id="updateDataBtn" class="btn btn-primary">
+                <span id="updateBtnText">更新數據</span>
+                <span id="updateBtnSpinner" class="spinner-border spinner-border-sm ms-2" style="display: none;"></span>
+            </button>
+            <div id="updateMessage" class="mt-2"></div>
+        </div>
+        
+        <!-- 篩選控件 -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card filter-card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-filter"></i> 篩選條件</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="symbolFilter" class="form-label">交易對搜尋</label>
+                                <input type="text" class="form-control" id="symbolFilter" placeholder="輸入交易對名稱...">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="minReturnFilter" class="form-label">最小套利年化費率 (%)</label>
+                                <input type="number" class="form-control" id="minReturnFilter" placeholder="0" step="0.1" min="0">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="minOpportunityFilter" class="form-label">最小機會頻率 (%)</label>
+                                <input type="number" class="form-control" id="minOpportunityFilter" placeholder="0" step="0.1" min="0" max="100">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="maxVolatilityFilter" class="form-label">最大波動性 (%)</label>
+                                <input type="number" class="form-control" id="maxVolatilityFilter" placeholder="無限制" step="0.1" min="0">
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="showOpportunitiesOnly">
+                                    <label class="form-check-label" for="showOpportunitiesOnly">
+                                        只顯示套利機會 (機會頻率 > 50%)
+                                    </label>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted" id="filterStats">顯示 0 / 0 個交易對</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex gap-2 btn-group-filter">
+                                    <button id="applyFiltersBtn" class="btn btn-primary">
+                                        <i class="fas fa-search"></i> 套用篩選
+                                    </button>
+                                    <button id="clearFiltersBtn" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> 清除篩選
+                                    </button>
+                                    <button id="exportFilteredBtn" class="btn btn-success">
+                                        <i class="fas fa-download"></i> 匯出篩選結果
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 頁簽導航 -->
+        <div class="table-container">
+            <ul class="nav nav-tabs" id="analysisTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab">
+                        機會摘要
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="details-tab" data-bs-toggle="tab" data-bs-target="#details" type="button" role="tab">
+                        詳細數據
+                    </button>
+                </li>
+            </ul>
+            
+            <!-- 頁簽內容 -->
+            <div class="tab-content" id="analysisTabsContent">
+                <!-- 機會摘要 -->
+                <div class="tab-pane fade show active" id="summary" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>交易對</th>
+                                    <th class="text-end">平均套利年化費率 (%)</th>
+                                    <th class="text-end">機會頻率 (%)</th>
+                                    <th class="text-end">波動性 (%)</th>
+                                    <th class="text-end">數據點</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-body">
+                                <tr><td colspan="5" class="text-center">正在載入數據...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- 詳細數據 -->
+                <div class="tab-pane fade" id="details" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>時間</th>
+                                    <th class="text-end">Bitget 費率 (%)</th>
+                                    <th class="text-end">Gate.io 費率 (%)</th>
+                                    <th class="text-end">套利費率差 (%)</th>
+                                    <th class="text-end">套利年化費率 (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="details-body">
+                                <tr><td colspan="5" class="text-center">請選擇一個交易對查看詳細數據</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="error-container" class="text-center mt-3"></div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let currentSymbol = null;
+        let analysisData = [];
+        let filteredData = [];
+        
+        // 篩選條件
+        let filterSettings = {
+            symbol: '',
+            minReturn: 0,
+            minOpportunity: 0,
+            maxVolatility: null,
+            showOpportunitiesOnly: false
+        };
+
+        // 格式化數字
+        function formatNumber(value, decimals = 4) {
+            if (typeof value === 'number') {
+                return value.toFixed(decimals);
+            }
+            return 'N/A';
+        }
+
+        // 格式化時間
+        function formatDateTime(isoString) {
+            return new Date(isoString).toLocaleString('zh-TW', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        // 套用篩選條件
+        function applyFilters() {
+            filteredData = analysisData.filter(item => {
+                const arbitrageRate = item.avg_annualized_return * 100;
+                const opportunityFreq = item.opportunity_frequency * 100;
+                const volatility = item.std_dev * 100;
+                const symbol = item.symbol.toLowerCase();
+                
+                // 交易對篩選
+                if (filterSettings.symbol && !symbol.includes(filterSettings.symbol.toLowerCase())) {
+                    return false;
+                }
+                
+                // 最小套利年化費率篩選
+                if (arbitrageRate < filterSettings.minReturn) {
+                    return false;
+                }
+                
+                // 最小機會頻率篩選
+                if (opportunityFreq < filterSettings.minOpportunity) {
+                    return false;
+                }
+                
+                // 最大波動性篩選
+                if (filterSettings.maxVolatility !== null && volatility > filterSettings.maxVolatility) {
+                    return false;
+                }
+                
+                // 只顯示套利機會篩選
+                if (filterSettings.showOpportunitiesOnly && opportunityFreq <= 50) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            renderSummaryTable();
+            updateFilterStats();
+        }
+
+        // 更新篩選統計
+        function updateFilterStats() {
+            const totalCount = analysisData.length;
+            const filteredCount = filteredData.length;
+            const statsElement = document.getElementById('filterStats');
+            
+            if (statsElement) {
+                statsElement.textContent = `顯示 ${filteredCount} / ${totalCount} 個交易對`;
+            }
+        }
+
+        // 清除篩選條件
+        function clearFilters() {
+            document.getElementById('symbolFilter').value = '';
+            document.getElementById('minReturnFilter').value = '';
+            document.getElementById('minOpportunityFilter').value = '';
+            document.getElementById('maxVolatilityFilter').value = '';
+            document.getElementById('showOpportunitiesOnly').checked = false;
+            
+            filterSettings = {
+                symbol: '',
+                minReturn: 0,
+                minOpportunity: 0,
+                maxVolatility: null,
+                showOpportunitiesOnly: false
+            };
+            
+            filteredData = analysisData;
+            renderSummaryTable();
+            updateFilterStats();
+        }
+
+        // 匯出篩選結果
+        function exportFilteredData() {
+            if (!filteredData || filteredData.length === 0) {
+                alert('沒有數據可以匯出');
+                return;
+            }
+            
+            const csvContent = [
+                ['交易對', '平均套利年化費率 (%)', '機會頻率 (%)', '波動性 (%)', '數據點'],
+                ...filteredData.map(item => [
+                    item.symbol,
+                    (item.avg_annualized_return * 100).toFixed(4),
+                    (item.opportunity_frequency * 100).toFixed(4),
+                    (item.std_dev * 100).toFixed(4),
+                    item.data_points
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `funding_rates_analysis_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 載入分析摘要
+        async function loadAnalysisSummary() {
+            try {
+                const response = await fetch('/api/analysis');
+                if (!response.ok) throw new Error('Failed to load analysis data');
+                
+                analysisData = await response.json();
+                filteredData = analysisData; // 初始化篩選數據
+                renderSummaryTable();
+                updateFilterStats();
+                
+                // 如果有數據，自動選擇第一個交易對
+                if (analysisData.length > 0) {
+                    selectSymbol(analysisData[0].symbol);
+                }
+            } catch (error) {
+                console.error('Error loading analysis data:', error);
+                document.getElementById('summary-body').innerHTML = 
+                    '<tr><td colspan="5" class="text-center error-message">載入數據失敗</td></tr>';
+            }
+        }
+
+        // 渲染摘要表格
+        function renderSummaryTable() {
+            const tbody = document.getElementById('summary-body');
+            
+            if (!filteredData || filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">沒有找到符合篩選條件的數據</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filteredData.map(item => {
+                const isOpportunity = item.opportunity_frequency > 0.5; // 機會頻率超過50%
+                const rowClass = isOpportunity ? 'opportunity-highlight' : '';
+                
+                return `
+                    <tr class="${rowClass}" data-symbol="${item.symbol}" style="cursor: pointer;">
+                        <td>${item.symbol}</td>
+                        <td class="text-end">${formatNumber(item.avg_annualized_return * 100)}</td>
+                        <td class="text-end">${formatNumber(item.opportunity_frequency * 100)}</td>
+                        <td class="text-end">${formatNumber(item.std_dev * 100)}</td>
+                        <td class="text-end">${item.data_points}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // 添加點擊事件
+            tbody.querySelectorAll('tr[data-symbol]').forEach(row => {
+                row.addEventListener('click', () => {
+                    const symbol = row.dataset.symbol;
+                    selectSymbol(symbol);
+                    
+                    // 切換到詳細數據頁簽
+                    const detailsTab = new bootstrap.Tab(document.getElementById('details-tab'));
+                    detailsTab.show();
+                });
+            });
+        }
+
+        // 選擇交易對並載入詳細數據
+        async function selectSymbol(symbol) {
+            currentSymbol = symbol;
+            
+            try {
+                const response = await fetch(`/api/raw-data/${symbol}`);
+                if (!response.ok) throw new Error('Failed to load raw data');
+                
+                const rawData = await response.json();
+                renderDetailsTable(rawData);
+                
+                // 更新頁簽標題
+                document.getElementById('details-tab').textContent = `${symbol} 詳細數據`;
+                
+            } catch (error) {
+                console.error('Error loading raw data:', error);
+                document.getElementById('details-body').innerHTML = 
+                    '<tr><td colspan="5" class="text-center error-message">載入詳細數據失敗</td></tr>';
+            }
+        }
+
+        // 渲染詳細數據表格
+        function renderDetailsTable(rawData) {
+            const tbody = document.getElementById('details-body');
+            
+            if (!rawData || rawData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">沒有找到詳細數據</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rawData.map(item => {
+                const rowClass = item.is_opportunity ? 'opportunity-highlight' : '';
+                
+                return `
+                    <tr class="${rowClass}">
+                        <td>${formatDateTime(item.timestamp)}</td>
+                        <td class="text-end">${formatNumber(item.bitget_rate)}</td>
+                        <td class="text-end">${formatNumber(item.gateio_rate)}</td>
+                        <td class="text-end">${formatNumber(item.abs_difference)}</td>
+                        <td class="text-end">${formatNumber(item.annual_return)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 更新數據
+        async function updateData() {
+            const btn = document.getElementById('updateDataBtn');
+            const btnText = document.getElementById('updateBtnText');
+            const btnSpinner = document.getElementById('updateBtnSpinner');
+            const message = document.getElementById('updateMessage');
+            
+            // 顯示載入狀態
+            btn.classList.add('loading');
+            btnText.textContent = '更新中...';
+            btnSpinner.style.display = 'inline-block';
+            message.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/update-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    message.innerHTML = `<span class="success-message">${result.message}</span>`;
+                    // 重新載入數據
+                    await loadAnalysisSummary();
+                } else {
+                    message.innerHTML = `<span class="error-message">更新失敗: ${result.error}</span>`;
+                }
+            } catch (error) {
+                console.error('Error updating data:', error);
+                message.innerHTML = '<span class="error-message">更新失敗: 網路錯誤</span>';
+            } finally {
+                // 恢復按鈕狀態
+                btn.classList.remove('loading');
+                btnText.textContent = '更新數據';
+                btnSpinner.style.display = 'none';
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 載入初始數據
+            loadAnalysisSummary();
+            
+            // 綁定更新按鈕事件
+            document.getElementById('updateDataBtn').addEventListener('click', updateData);
+            
+            // 綁定篩選按鈕事件
+            document.getElementById('applyFiltersBtn').addEventListener('click', function() {
+                // 更新篩選設定
+                filterSettings.symbol = document.getElementById('symbolFilter').value;
+                filterSettings.minReturn = parseFloat(document.getElementById('minReturnFilter').value) || 0;
+                filterSettings.minOpportunity = parseFloat(document.getElementById('minOpportunityFilter').value) || 0;
+                filterSettings.maxVolatility = document.getElementById('maxVolatilityFilter').value ? 
+                    parseFloat(document.getElementById('maxVolatilityFilter').value) : null;
+                filterSettings.showOpportunitiesOnly = document.getElementById('showOpportunitiesOnly').checked;
+                
+                applyFilters();
+            });
+            
+            document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
+            document.getElementById('exportFilteredBtn').addEventListener('click', exportFilteredData);
+            
+            // 綁定輸入框事件 (即時篩選)
+            document.getElementById('symbolFilter').addEventListener('input', function() {
+                filterSettings.symbol = this.value;
+                applyFilters();
+            });
+            
+            document.getElementById('minReturnFilter').addEventListener('input', function() {
+                filterSettings.minReturn = parseFloat(this.value) || 0;
+                applyFilters();
+            });
+            
+            document.getElementById('minOpportunityFilter').addEventListener('input', function() {
+                filterSettings.minOpportunity = parseFloat(this.value) || 0;
+                applyFilters();
+            });
+            
+            document.getElementById('maxVolatilityFilter').addEventListener('input', function() {
+                filterSettings.maxVolatility = this.value ? parseFloat(this.value) : null;
+                applyFilters();
+            });
+            
+            document.getElementById('showOpportunitiesOnly').addEventListener('change', function() {
+                filterSettings.showOpportunitiesOnly = this.checked;
+                applyFilters();
+            });
+            
+            // 每5分鐘自動刷新一次
+            setInterval(loadAnalysisSummary, 5 * 60 * 1000);
+        });
+    </script>
+</body>
+</html> 

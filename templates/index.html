@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>交易歷史紀錄</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .table-container {
+            max-width: 1400px; /* 在大螢幕上給更多空間 */
+            margin: auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: white;
+        }
+        .table thead th {
+            background-color: #343a40;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            white-space: nowrap; /* 防止表頭文字換行 */
+        }
+        .table td, .table th {
+            padding: 0.75rem 1.25rem; /* 增加水平內邊距 */
+            vertical-align: middle;
+            white-space: nowrap; /* 防止儲存格文字換行 */
+            font-size: 0.9rem; /* 稍微縮小字體 */
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef; /* 滑鼠懸停時高亮整行 */
+        }
+        /* 數據對齊 */
+        .table .text-end { text-align: right !important; }
+        .table .text-start { text-align: left !important; }
+        
+        /* 顏色分組 */
+        .short-col { background-color: rgba(220, 53, 69, 0.05); } /* 淡紅色背景 */
+        .long-col { background-color: rgba(25, 135, 84, 0.05); } /* 淡綠色背景 */
+
+        .action-open { color: #198754; font-weight: bold; }
+        .action-close { color: #dc3545; font-weight: bold; }
+        .error-message { color: #dc3545; font-style: italic; }
+        .pnl-positive { color: #198754; font-weight: bold; }
+        .pnl-negative { color: #dc3545; font-weight: bold; }
+        .nav-tabs {
+            margin-bottom: 0;
+            background-color: #f8f9fa;
+            border-bottom: none;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: white;
+            border-bottom-color: white;
+        }
+        .success-message {
+            color: #198754;
+            font-weight: bold;
+        }
+        .profit-stats-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .profit-stats-card .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: 600;
+        }
+        .profit-stats-card .card-body {
+            padding: 1.5rem;
+        }
+        .profit-stat-item h4 {
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        .text-success {
+            color: #198754 !important;
+        }
+        .text-danger {
+            color: #dc3545 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <h1 class="text-center mb-4">交易歷史紀錄</h1>
+        <p class="text-center text-muted">此頁面每 30 秒自動刷新。</p>
+        
+        <!-- 收益統計 -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card profit-stats-card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-line"></i> 收益統計</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center profit-stat-item">
+                                    <h4 id="totalRealizedPnl" class="mb-1">$0.00</h4>
+                                    <small class="text-muted">已實現損益</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center profit-stat-item">
+                                    <h4 id="totalFundingProfit" class="mb-1">$0.00</h4>
+                                    <small class="text-muted">資金費率套利收益</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center profit-stat-item">
+                                    <h4 id="totalProfit" class="mb-1">$0.00</h4>
+                                    <small class="text-muted">總收益</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center profit-stat-item">
+                                    <h4 id="closedTradesCount" class="mb-1">0</h4>
+                                    <small class="text-muted">已平倉交易數</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 導航連結 -->
+        <div class="text-center mb-3">
+            <a href="/funding-rates" class="btn btn-outline-primary">資金費率分析</a>
+            <a href="/config" class="btn btn-outline-secondary ms-2">配置管理</a>
+        </div>
+        
+        <!-- 頁簽導航 -->
+        <div class="table-container">
+            <ul class="nav nav-tabs" id="tradingTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab">
+                        未平倉交易
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="closed-tab" data-bs-toggle="tab" data-bs-target="#closed" type="button" role="tab">
+                        已平倉交易
+                    </button>
+                </li>
+            </ul>
+            
+            <!-- 頁簽內容 -->
+            <div class="tab-content" id="tradingTabsContent">
+                <!-- 未平倉交易 -->
+                <div class="tab-pane fade show active" id="open" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead id="open-positions-header">
+                                <!-- 由 JavaScript 生成 -->
+                            </thead>
+                            <tbody id="open-positions-body">
+                                <tr><td colspan="9" class="text-center">正在載入交易數據...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- 已平倉交易 -->
+                <div class="tab-pane fade" id="closed" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead id="closed-positions-header">
+                                <!-- 由 JavaScript 生成 -->
+                            </thead>
+                            <tbody id="closed-positions-body">
+                                <tr><td colspan="9" class="text-center">正在載入交易數據...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="error-container" class="text-center mt-3"></div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // 欄位名稱翻譯
+        const headerTranslations = {
+            'pair': '交易對',
+            'action': '動作',
+            'size_usdt': '倉位大小 (USDT)',
+            'short_exchange': '做空交易所',
+            'long_exchange': '做多交易所',
+            
+            // 未平倉交易欄位
+            'timestamp_utc': '開倉時間',
+            'short_price': '做空價格',
+            'long_price': '做多價格',
+            'funding_rate_diff_annualized_percent': '套利年化費率 (%)',
+            'holding_time': '持倉時間 (小時)',
+            
+            // 已平倉交易欄位
+            'open_time': '開倉時間',
+            'close_time': '平倉時間',
+            'open_short_price': '開倉做空價格',
+            'open_long_price': '開倉做多價格',
+            'close_short_price': '平倉做空價格',
+            'close_long_price': '平倉做多價格',
+            'open_funding_rate_diff': '開倉時套利年化費率 (%)',
+            'close_funding_rate_diff': '平倉時套利年化費率 (%)',
+            'close_reason': '平倉理由',
+            'realized_pnl': '已實現損益 (USDT)',
+            'funding_fee_profit': '資金費率套利收益 (USDT)',
+            'total_profit': '總收益 (USDT)'
+        };
+
+        // 格式化數字 (增加選項來決定是否靠右對齊)
+        function formatNumber(value, decimals = 6, alignClass = 'text-end') {
+            if (typeof value === 'number') {
+                return `<td class="${alignClass}">${value.toFixed(decimals)}</td>`;
+            }
+            return `<td class="text-start">${value}</td>`;
+        }
+
+        // 格式化時間
+        function formatDateTime(isoString) {
+            return new Date(isoString).toLocaleString('zh-TW', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        // 平倉理由翻譯
+        function translateCloseReason(reason) {
+            const reasonTranslations = {
+                'STOP_LOSS': '止損',
+                'RATE_REVERSAL': '資金費率反轉',
+                'MAX_HOLDING_TIME': '最大持倉時間',
+                'LOW_ARBITRAGE_RATE': '套利費率過低',
+                'MAX_HOLDING_PRICE_SPREAD': '持倉價格偏差過大',
+                '舊紀錄 (無法配對)': '舊紀錄 (無法配對)'
+            };
+            return reasonTranslations[reason] || reason;
+        }
+
+        // 生成表格
+        function generateTable(data, headerElement, bodyElement, type) {
+            if (!Array.isArray(data) || data.length === 0) {
+                headerElement.innerHTML = '';
+                bodyElement.innerHTML = '<tr><td colspan="9" class="text-center">找不到交易紀錄。</td></tr>';
+                return;
+            }
+
+            // 根據不同類型選擇要顯示的欄位
+            let headers;
+            if (type === 'open') {
+                headers = ['pair', 'timestamp_utc', 'short_exchange', 'long_exchange', 
+                          'size_usdt', 'short_price', 'long_price', 
+                          'funding_rate_diff_annualized_percent', 'holding_time'];
+            } else {
+                headers = ['pair', 'open_time', 'close_time', 'holding_time',
+                          'short_exchange', 'long_exchange', 'size_usdt',
+                          'open_short_price', 'open_long_price',
+                          'close_short_price', 'close_long_price',
+                          'open_funding_rate_diff', 'close_funding_rate_diff',
+                          'close_reason', 'realized_pnl', 'funding_fee_profit', 'total_profit'];
+            }
+
+            // 生成表頭
+            const headerHtml = headers.map(h => {
+                const alignClass = ['size_usdt', 'price', 'diff', 'pnl', 'time'].some(keyword => h.includes(keyword)) ? 'text-end' : 'text-start';
+                let colorClass = '';
+                if (h.includes('short')) colorClass = 'short-col';
+                if (h.includes('long')) colorClass = 'long-col';
+                return `<th class="${alignClass} ${colorClass}">${headerTranslations[h] || h}</th>`;
+            }).join('');
+            headerElement.innerHTML = `<tr>${headerHtml}</tr>`;
+
+            // 生成表格內容
+            const rows = data.map(item => {
+                const cells = headers.map(header => {
+                    let value = item[header];
+                    let className = '';
+                    let content;
+
+                    // 數據對齊
+                    const isNumeric = ['size_usdt', 'price', 'diff', 'pnl', 'holding_time'].some(keyword => header.includes(keyword));
+                    className = isNumeric ? 'text-end' : 'text-start';
+
+                    // 顏色分組
+                    if (header.includes('short')) className += ' short-col';
+                    if (header.includes('long')) className += ' long-col';
+
+                    // 特殊格式化處理
+                    if (header.includes('time') && value !== null) {
+                        if (header === 'holding_time') {
+                            if (value < 0) {
+                                content = 'N/A';
+                            } else {
+                                content = parseFloat(value).toFixed(2);
+                            }
+                        } else {
+                            content = formatDateTime(value);
+                        }
+                    } else if (header === 'realized_pnl' && typeof value === 'number') {
+                        className += value > 0 ? ' pnl-positive' : value < 0 ? ' pnl-negative' : '';
+                        content = parseFloat(value).toFixed(2);
+                    } else if (header === 'funding_fee_profit' && typeof value === 'number') {
+                        className += value > 0 ? ' pnl-positive' : value < 0 ? ' pnl-negative' : '';
+                        content = parseFloat(value).toFixed(2);
+                    } else if (header === 'total_profit') {
+                        // 計算總收益 = 已實現損益 + 資金費率套利收益
+                        const realizedPnl = item.realized_pnl || 0;
+                        const fundingProfit = item.funding_fee_profit || 0;
+                        const totalProfit = realizedPnl + fundingProfit;
+                        className += totalProfit > 0 ? ' pnl-positive' : totalProfit < 0 ? ' pnl-negative' : '';
+                        content = parseFloat(totalProfit).toFixed(2);
+                    } else if (typeof value === 'number') {
+                        content = parseFloat(value).toFixed(6);
+                    } else {
+                        // 特殊處理平倉理由
+                        if (header === 'close_reason') {
+                            content = translateCloseReason(value) || '--';
+                        } else {
+                            content = value || '--'; // 對於空的文字欄位，顯示 '--'
+                        }
+                    }
+                    
+                    return `<td class="${className}">${content}</td>`;
+                });
+                return `<tr>${cells.join('')}</tr>`;
+            });
+
+            bodyElement.innerHTML = rows.join('');
+        }
+
+        // 更新收益統計
+        function updateProfitStats(closedPositions) {
+            let totalRealizedPnl = 0;
+            let totalFundingProfit = 0;
+            let totalProfit = 0;
+            let closedTradesCount = closedPositions.length;
+            
+            closedPositions.forEach(position => {
+                const realizedPnl = parseFloat(position.realized_pnl) || 0;
+                const fundingProfit = parseFloat(position.funding_fee_profit) || 0;
+                
+                totalRealizedPnl += realizedPnl;
+                totalFundingProfit += fundingProfit;
+                totalProfit += realizedPnl + fundingProfit;
+            });
+            
+            // 更新顯示
+            document.getElementById('totalRealizedPnl').textContent = `$${totalRealizedPnl.toFixed(2)}`;
+            document.getElementById('totalFundingProfit').textContent = `$${totalFundingProfit.toFixed(2)}`;
+            document.getElementById('totalProfit').textContent = `$${totalProfit.toFixed(2)}`;
+            document.getElementById('closedTradesCount').textContent = closedTradesCount;
+            
+            // 根據收益設置顏色
+            const totalRealizedElement = document.getElementById('totalRealizedPnl');
+            const totalFundingElement = document.getElementById('totalFundingProfit');
+            const totalProfitElement = document.getElementById('totalProfit');
+            
+            totalRealizedElement.className = totalRealizedPnl > 0 ? 'mb-1 text-success' : totalRealizedPnl < 0 ? 'mb-1 text-danger' : 'mb-1';
+            totalFundingElement.className = totalFundingProfit > 0 ? 'mb-1 text-success' : totalFundingProfit < 0 ? 'mb-1 text-danger' : 'mb-1';
+            totalProfitElement.className = totalProfit > 0 ? 'mb-1 text-success' : totalProfit < 0 ? 'mb-1 text-danger' : 'mb-1';
+        }
+
+        // 更新數據
+        async function updateData() {
+            try {
+                // 獲取未平倉交易
+                const openResponse = await fetch('/history/open' + '?t=' + new Date().getTime());
+                if (!openResponse.ok) throw new Error(`獲取未平倉交易失敗: ${openResponse.status}`);
+                const openPositions = await openResponse.json();
+                
+                // 獲取已平倉交易
+                const closedResponse = await fetch('/history/closed' + '?t=' + new Date().getTime());
+                if (!closedResponse.ok) throw new Error(`獲取已平倉交易失敗: ${closedResponse.status}`);
+                const closedPositions = await closedResponse.json();
+
+                // 更新表格
+                generateTable(openPositions, 
+                            document.getElementById('open-positions-header'),
+                            document.getElementById('open-positions-body'),
+                            'open');
+                            
+                generateTable(closedPositions,
+                            document.getElementById('closed-positions-header'),
+                            document.getElementById('closed-positions-body'),
+                            'closed');
+
+                // 更新收益統計
+                updateProfitStats(closedPositions);
+
+                document.getElementById('error-container').innerHTML = '';
+
+            } catch (error) {
+                console.error('數據更新錯誤:', error);
+                document.getElementById('error-container').innerHTML = 
+                    `<p class="error-message"><strong>錯誤：</strong> ${error.message}<br>請確保 Python 網頁伺服器正在正常運行。</p>`;
+            }
+        }
+
+        // 初始更新和定時更新
+        updateData();
+        setInterval(updateData, 30000);
+    </script>
+</body>
+</html> 
