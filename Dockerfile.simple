@@ -1,0 +1,12 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements_simple.txt .
+RUN pip install -r requirements_simple.txt
+
+COPY . .
+
+EXPOSE 8080
+
+CMD ["python", "ascii_test.py"] 
