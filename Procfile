@@ -1,1 +1,1 @@
-web: python ascii_test.py 
+web: python minimal_test.py 
