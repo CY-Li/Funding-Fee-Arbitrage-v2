@@ -28,6 +28,11 @@ def get_market_data(api_client, symbol):
             "index_price": ticker_data.get('indexPrice')
         }
 
+        # 如果 mark_price 為 None，使用 last_price 作為備用
+        if market_data["mark_price"] is None and market_data["last_price"] is not None:
+            market_data["mark_price"] = market_data["last_price"]
+            logging.info(f"Using last_price as mark_price for {api_client.name} {symbol}: {market_data['mark_price']}")
+
         # Validate that we got the essential data
         if market_data["funding_rate"] is None or market_data["mark_price"] is None:
             logging.warning(f"Incomplete data received from {api_client.name} for {symbol}. Data: {market_data}")
