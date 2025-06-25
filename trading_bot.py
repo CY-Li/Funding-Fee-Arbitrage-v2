@@ -47,10 +47,10 @@ def rebuild_state_from_history():
     on startup. This makes the bot resilient to restarts.
     """
     global open_positions
-    trade_history_file = 'trading_history.csv'
+    trade_history_file = trade_logger.LOG_FILE # Use the correct path from trade_logger
     try:
         if not os.path.exists(trade_history_file):
-            logging.info("No trading history file found. Starting with a clean state.")
+            logging.info(f"No trading history file found at {trade_history_file}. Starting with a clean state.")
             return
 
         df = pd.read_csv(trade_history_file)
