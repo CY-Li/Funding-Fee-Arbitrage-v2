@@ -3,7 +3,12 @@ import os
 from datetime import datetime
 import logging
 
-LOG_FILE = 'trading_history.csv'
+DATA_DIR = '/app/data'
+LOG_FILE = os.path.join(DATA_DIR, 'trading_history.csv')
+
+# 確保資料夾存在
+os.makedirs(DATA_DIR, exist_ok=True)
+
 FIELDNAMES = [
     'timestamp_utc', 
     'pair', 

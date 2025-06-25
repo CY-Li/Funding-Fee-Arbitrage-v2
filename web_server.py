@@ -24,15 +24,17 @@ def health_check():
 
 # Define the path to the CSV file
 # This assumes web_server.py is run from the project root directory
-TRADE_HISTORY_FILE = 'trading_history.csv'
+DATA_DIR = '/app/data'
+os.makedirs(DATA_DIR, exist_ok=True)
+TRADE_HISTORY_FILE = os.path.join(DATA_DIR, 'trading_history.csv')
 
 # --- Funding Rate Analysis Constants ---
 GATE_CONTRACTS_ENDPOINT = "https://api.gateio.ws/api/v4/futures/usdt/contracts"
 BITGET_CONTRACTS_ENDPOINT = "https://api.bitget.com/api/mix/v1/market/contracts?productType=umcbl"
 GATE_FUNDING_ENDPOINT = "https://api.gateio.ws/api/v4/futures/usdt/funding_rate"
 BITGET_FUNDING_ENDPOINT = "https://api.bitget.com/api/mix/v1/market/history-fundRate"
-RAW_DATA_CSV = "all_funding_rates.csv"
-ANALYSIS_JSON = "analysis_summary.json"
+RAW_DATA_CSV = os.path.join(DATA_DIR, "all_funding_rates.csv")
+ANALYSIS_JSON = os.path.join(DATA_DIR, "analysis_summary.json")
 OPPORTUNITY_THRESHOLD = 0.0001  # 0.01%
 
 # --- Time Range ---
@@ -653,10 +655,15 @@ def update_config():
             f.write(str(time.time()))
         # Reload configuration to apply changes (for web server process)
         config.reload_config()
-        logging.info("Configuration updated successfully")
+        
+        # 觸發機器人端的配置重載
+        with open(os.path.join(DATA_DIR, 'config_update.timestamp'), 'w') as f:
+            f.write(str(time.time()))
+            
+        logging.info(f"Configuration saved and update signal sent. Test mode: {data['TEST_MODE']}")
         return jsonify({'success': True, 'message': 'Configuration updated successfully'})
     except Exception as e:
-        logging.error(f"Error updating config: {e}")
+        logging.error(f"Error updating config: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

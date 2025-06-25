@@ -12,7 +12,11 @@ BITGET_API_KEY = os.environ.get("BITGET_API_KEY")
 BITGET_SECRET_KEY = os.environ.get("BITGET_SECRET_KEY")
 BITGET_API_PASSPHRASE = os.environ.get("BITGET_API_PASSPHRASE")
 
-CONFIG_FILE = 'config.json'
+DATA_DIR = '/app/data'
+CONFIG_FILE = os.path.join(DATA_DIR, 'config.json')
+
+# 確保資料夾存在
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # 預設參數
 DEFAULT_CONFIG = {

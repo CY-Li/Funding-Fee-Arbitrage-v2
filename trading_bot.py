@@ -23,7 +23,7 @@ def check_config_updates():
     last_config_check = current_time
     
     try:
-        config_file = 'config_update.timestamp'
+        config_file = '/app/data/config_update.timestamp'
         if os.path.exists(config_file):
             logging.info("Configuration update detected, reloading config...")
             config.reload_config()
