@@ -20,8 +20,22 @@ FIELDNAMES = [
     'trade_id'       # 新增：用於追蹤開倉/平倉配對
 ]
 
+def initialize_trade_log():
+    """初始化交易日誌文件，如果不存在則創建空的 CSV 文件"""
+    if not os.path.exists(LOG_FILE):
+        try:
+            with open(LOG_FILE, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
+                writer.writeheader()
+            logging.info(f"Created empty trade log file: {LOG_FILE}")
+        except Exception as e:
+            logging.error(f"Failed to create trade log file: {e}")
+
 def log_trade(pair, action, short_exchange, long_exchange, size_usdt, short_price, long_price, rate_diff, close_reason=None, realized_pnl=None, funding_fee_profit=None, trade_id=None):
     """Logs a trade event to the CSV file."""
+    
+    # 確保文件存在
+    initialize_trade_log()
     
     file_exists = os.path.isfile(LOG_FILE)
     

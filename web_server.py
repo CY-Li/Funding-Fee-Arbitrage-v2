@@ -171,14 +171,14 @@ def load_funding_data():
 def get_trade_data():
     """讀取並處理交易歷史數據"""
     if not os.path.exists(TRADE_HISTORY_FILE):
-        logging.warning(f"'{TRADE_HISTORY_FILE}' not found.")
+        logging.info(f"'{TRADE_HISTORY_FILE}' not found. This is normal for first run or test mode.")
         return pd.DataFrame()
     
     try:
         df = pd.read_csv(TRADE_HISTORY_FILE)
         logging.info(f"Loaded CSV. Shape: {df.shape}. Columns: {df.columns.tolist()}")
         if df.empty:
-            logging.warning("CSV is empty after loading.")
+            logging.info("CSV is empty after loading.")
             return df
             
         # --- 向下兼容處理 ---
@@ -208,7 +208,7 @@ def get_trade_data():
             logging.warning(f"Removed {original_rows - len(df)} rows with invalid datetime format from CSV.")
 
         if df.empty:
-            logging.warning("DataFrame is empty after removing corrupted rows.")
+            logging.info("DataFrame is empty after removing corrupted rows.")
             return df
 
         # 按時間降序排序
@@ -237,7 +237,7 @@ def get_open_positions():
     """提供當前未平倉的交易"""
     df = get_trade_data()
     if df.empty:
-        logging.warning("get_open_positions: DataFrame is empty from get_trade_data.")
+        logging.info("get_open_positions: DataFrame is empty from get_trade_data.")
         return jsonify([])
     
     try:
@@ -263,7 +263,7 @@ def get_closed_positions():
     """提供已平倉的交易"""
     df = get_trade_data()
     if df.empty:
-        logging.warning("get_closed_positions: DataFrame is empty from get_trade_data.")
+        logging.info("get_closed_positions: DataFrame is empty from get_trade_data.")
         return jsonify([])
     
     try:

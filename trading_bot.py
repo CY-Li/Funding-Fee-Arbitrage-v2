@@ -327,6 +327,9 @@ def main():
     # Load config
     config.reload_config()
 
+    # Initialize trade log file
+    trade_logger.initialize_trade_log()
+
     # Rebuild state from history before doing anything else
     rebuild_state_from_history()
 
