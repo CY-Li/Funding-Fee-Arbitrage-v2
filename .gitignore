@@ -49,7 +49,12 @@ config_update.timestamp
 *.log
 .env
 
-# Data files (optional - uncomment if you don't want to track data)
-# trading_history.csv
-# all_funding_rates.csv
-# analysis_summary.json 
+# Data files (exclude large files)
+trading_history.csv
+all_funding_rates.csv
+analysis_summary.json
+
+# Deployment files
+deploy_check.py
+deploy_check_simple.py
+DEPLOYMENT_CHECK.md 

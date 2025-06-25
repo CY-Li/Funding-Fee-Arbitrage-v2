@@ -21,7 +21,16 @@ def create_app():
     try:
         logging.info("Creating Flask application...")
         
+        # 檢查必要的文件
+        required_files = ['web_server.py', 'config.py']
+        for file in required_files:
+            if not os.path.exists(file):
+                logging.error(f"Required file {file} not found")
+                raise FileNotFoundError(f"Required file {file} not found")
+            logging.info(f"✓ Found {file}")
+        
         # 導入 web_server 模組
+        logging.info("Importing web_server module...")
         from web_server import app
         
         logging.info("Flask application created successfully")
@@ -32,7 +41,12 @@ def create_app():
         raise
 
 # 創建應用程式實例
-app = create_app()
+try:
+    app = create_app()
+    logging.info("Application instance created successfully")
+except Exception as e:
+    logging.error(f"Failed to create application: {e}")
+    sys.exit(1)
 
 if __name__ == '__main__':
     try:
