@@ -6,41 +6,35 @@
 
 ### 配置文件
 
-- `Procfile` - 指定啟動命令
+- `Procfile` - 指定啟動命令 (`python main.py`)
 - `requirements.txt` - Python 依賴項
 - `runtime.txt` - Python 版本
 - `nixpacks.toml` - Nixpacks 構建配置
 - `zeabur.toml` - Zeabur 部署配置
 
-### 啟動命令
+### 啟動流程
 
-```bash
-python integrated_app.py
-```
-
-這個命令會：
-1. 啟動 web 服務器（Flask + Gunicorn）
-2. 在背景線程中啟動交易機器人
-3. 同時運行兩個服務
+1. `main.py` - 主入口點
+2. `simple_start.py` - 啟動 web 服務器和交易機器人
 
 ### 環境變數
 
 在 Zeabur 的 Variables 部分設置以下環境變數：
 
+#### 必需的 API 密鑰
 - `GATEIO_API_KEY` - Gate.io API 金鑰
 - `GATEIO_SECRET_KEY` - Gate.io 密鑰
 - `BITGET_API_KEY` - Bitget API 金鑰
 - `BITGET_SECRET_KEY` - Bitget 密鑰
 - `BITGET_API_PASSPHRASE` - Bitget API 密碼
 
-### 可選的配置環境變數
-
+#### 可選的配置環境變數
 - `TRADING_PAIRS` - 交易對列表（JSON 格式）
-- `MIN_FUNDING_RATE_DIFFERENCE` - 最小資金費率差
-- `MAX_PRICE_SPREAD` - 最大價格偏差
-- `POSITION_SIZE_USDT` - 倉位大小
-- `MAX_TOTAL_EXPOSURE_USDT` - 最大總風險敞口
-- `TEST_MODE` - 測試模式（true/false）
+- `MIN_FUNDING_RATE_DIFFERENCE` - 最小資金費率差（預設 0.10）
+- `MAX_PRICE_SPREAD` - 最大價格偏差（預設 0.005）
+- `POSITION_SIZE_USDT` - 倉位大小（預設 100.0）
+- `MAX_TOTAL_EXPOSURE_USDT` - 最大總風險敞口（預設 1000.0）
+- `TEST_MODE` - 測試模式（預設 true）
 
 ### 部署步驟
 
@@ -52,7 +46,7 @@ python integrated_app.py
 ### 服務說明
 
 #### Web 服務器
-- 端口：由 `PORT` 環境變數指定
+- 端口：由 `PORT` 環境變數指定（預設 8080）
 - 功能：提供交易歷史、資金費率分析、配置管理
 - 端點：
   - `/` - 主頁（交易歷史）

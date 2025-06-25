@@ -20,13 +20,6 @@ def main():
     """主函數"""
     logging.info("Starting application from main.py...")
     
-    # 初始化部署數據（如果不存在）
-    try:
-        import init_deployment
-        init_deployment.init_deployment_data()
-    except Exception as e:
-        logging.warning(f"Failed to initialize deployment data: {e}")
-    
     # 檢查 simple_start.py 是否存在
     if os.path.exists('simple_start.py'):
         logging.info("Found simple_start.py, importing and running...")

@@ -8,14 +8,6 @@ import time
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def init_deployment():
-    """初始化部署數據"""
-    try:
-        import init_deployment
-        init_deployment.init_deployment_data()
-    except Exception as e:
-        logging.warning(f"Failed to initialize deployment data: {e}")
-
 def run_web():
     """Run web server"""
     try:
@@ -38,9 +30,6 @@ def run_bot():
 
 def main():
     logging.info("Starting application...")
-    
-    # 初始化部署數據
-    init_deployment()
     
     # Start trading bot in background
     bot_thread = threading.Thread(target=run_bot, daemon=True)

@@ -177,9 +177,18 @@ def get_trade_data():
     try:
         df = pd.read_csv(TRADE_HISTORY_FILE)
         logging.info(f"Loaded CSV. Shape: {df.shape}. Columns: {df.columns.tolist()}")
+        
         if df.empty:
             logging.info("CSV is empty after loading.")
             return df
+        
+        # 檢查必要的欄位是否存在
+        required_columns = ['timestamp_utc', 'pair', 'action']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            logging.error(f"Missing required columns in CSV: {missing_columns}")
+            logging.error(f"Available columns: {df.columns.tolist()}")
+            return pd.DataFrame()
             
         # --- 向下兼容處理 ---
         # 確保所有新版欄位都存在，若不存在則補上空值
