@@ -106,6 +106,12 @@
                 <span id="updateBtnSpinner" class="spinner-border spinner-border-sm ms-2" style="display: none;"></span>
             </button>
             <div id="updateMessage" class="mt-2"></div>
+            <div class="mt-2">
+                <small class="text-muted">
+                    最後更新時間: <span id="lastUpdateTime">載入中...</span>
+                    <span id="autoUpdateInfo" class="ms-2">(每小時自動更新)</span>
+                </small>
+            </div>
         </div>
         
         <!-- 篩選控件 -->
@@ -470,6 +476,29 @@
             }).join('');
         }
 
+        // 獲取最後更新時間
+        async function loadLastUpdateTime() {
+            try {
+                const response = await fetch('/api/last-update');
+                if (!response.ok) throw new Error('Failed to load last update time');
+                
+                const data = await response.json();
+                const lastUpdateElement = document.getElementById('lastUpdateTime');
+                
+                if (data.has_data) {
+                    lastUpdateElement.textContent = data.last_update_formatted;
+                    lastUpdateElement.className = 'text-success';
+                } else {
+                    lastUpdateElement.textContent = data.last_update_formatted;
+                    lastUpdateElement.className = 'text-muted';
+                }
+            } catch (error) {
+                console.error('Error loading last update time:', error);
+                document.getElementById('lastUpdateTime').textContent = '載入失敗';
+                document.getElementById('lastUpdateTime').className = 'text-danger';
+            }
+        }
+
         // 更新數據
         async function updateData() {
             const btn = document.getElementById('updateDataBtn');
@@ -497,6 +526,8 @@
                     message.innerHTML = `<span class="success-message">${result.message}</span>`;
                     // 重新載入數據
                     await loadAnalysisSummary();
+                    // 更新最後更新時間
+                    await loadLastUpdateTime();
                 } else {
                     message.innerHTML = `<span class="error-message">更新失敗: ${result.error}</span>`;
                 }
@@ -515,6 +546,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             // 載入初始數據
             loadAnalysisSummary();
+            loadLastUpdateTime();
             
             // 綁定更新按鈕事件
             document.getElementById('updateDataBtn').addEventListener('click', updateData);
@@ -561,8 +593,11 @@
                 applyFilters();
             });
             
-            // 每5分鐘自動刷新一次
-            setInterval(loadAnalysisSummary, 5 * 60 * 1000);
+            // 每5分鐘自動刷新一次數據和更新時間
+            setInterval(() => {
+                loadAnalysisSummary();
+                loadLastUpdateTime();
+            }, 5 * 60 * 1000);
         });
     </script>
 </body>

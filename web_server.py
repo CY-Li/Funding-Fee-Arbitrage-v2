@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from flask import Flask, jsonify, render_template, abort, request
+from flask import Flask, jsonify, render_template, abort, request, make_response
 import logging
 import config
 import requests
@@ -341,6 +341,137 @@ def get_analysis():
     analysis_data, _ = load_funding_data()
     return jsonify(analysis_data)
 
+@app.route('/api/clear-closed-trades', methods=['POST'])
+def clear_closed_trades():
+    """API endpoint to clear closed trades from trading history"""
+    try:
+        df = get_trade_data()
+        if df.empty:
+            return jsonify({'success': True, 'message': 'No trading history to clear'})
+        
+        # 保留開倉中的交易（只有 OPEN 沒有 CLOSE 的記錄）
+        trades_by_id = df.groupby('trade_id')
+        open_trades = []
+        
+        for trade_id, group in trades_by_id:
+            # 如果只有 OPEN 記錄，表示交易還在進行中
+            if len(group) == 1 and 'OPEN' in group['action'].values:
+                open_trades.append(group.iloc[0])
+        
+        # 重新寫入只包含開倉中交易的 CSV
+        if open_trades:
+            new_df = pd.DataFrame(open_trades)
+            new_df.to_csv(TRADE_HISTORY_FILE, index=False)
+            logging.info(f"Cleared closed trades. Kept {len(open_trades)} open trades.")
+            return jsonify({
+                'success': True, 
+                'message': f'已清空已平倉交易記錄，保留 {len(open_trades)} 筆開倉中交易'
+            })
+        else:
+            # 如果沒有開倉中的交易，清空整個檔案
+            with open(TRADE_HISTORY_FILE, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=[
+                    'timestamp_utc', 'pair', 'action', 'short_exchange', 'long_exchange',
+                    'size_usdt', 'short_price', 'long_price', 'funding_rate_diff_annualized_percent',
+                    'close_reason', 'realized_pnl', 'funding_fee_profit', 'trade_id'
+                ])
+                writer.writeheader()
+            logging.info("Cleared all trading history.")
+            return jsonify({
+                'success': True, 
+                'message': '已清空所有交易記錄'
+            })
+            
+    except Exception as e:
+        logging.error(f"Error clearing closed trades: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/export-closed-trades')
+def export_closed_trades():
+    """API endpoint to export closed trades as CSV"""
+    try:
+        df = get_trade_data()
+        if df.empty:
+            return jsonify({'error': 'No trading history to export'}), 404
+        
+        # 獲取已平倉交易
+        closed_positions = []
+        
+        # 處理舊紀錄
+        legacy_trades = df[df['trade_id'].astype(str).str.startswith('legacy_')]
+        for _, trade in legacy_trades.iterrows():
+            closed_positions.append(trade.to_dict())
+        
+        # 處理有完整開/平倉紀錄的新交易
+        trades_by_id = df[~df['trade_id'].astype(str).str.startswith('legacy_')].groupby('trade_id')
+        
+        for trade_id, group in trades_by_id:
+            if len(group) == 2:  # 有 OPEN 和 CLOSE 兩筆紀錄
+                open_trade_df = group[group['action'] == 'OPEN']
+                close_trade_df = group[group['action'] == 'CLOSE']
+
+                if not open_trade_df.empty and not close_trade_df.empty:
+                    open_trade = open_trade_df.iloc[0]
+                    close_trade = close_trade_df.iloc[0]
+                    
+                    # 創建一個包含完整交易信息的記錄
+                    export_record = {
+                        'trade_id': trade_id,
+                        'pair': open_trade['pair'],
+                        'open_time': open_trade['timestamp_utc'],
+                        'close_time': close_trade['timestamp_utc'],
+                        'holding_time_hours': (pd.Timestamp(close_trade['timestamp_utc']) - pd.Timestamp(open_trade['timestamp_utc'])).total_seconds() / 3600,
+                        'short_exchange': open_trade['short_exchange'],
+                        'long_exchange': open_trade['long_exchange'],
+                        'size_usdt': open_trade['size_usdt'],
+                        'open_short_price': open_trade['short_price'],
+                        'open_long_price': open_trade['long_price'],
+                        'close_short_price': close_trade['short_price'],
+                        'close_long_price': close_trade['long_price'],
+                        'open_funding_rate_diff_percent': open_trade['funding_rate_diff_annualized_percent'],
+                        'close_funding_rate_diff_percent': close_trade['funding_rate_diff_annualized_percent'],
+                        'close_reason': close_trade['close_reason'],
+                        'realized_pnl': close_trade['realized_pnl'],
+                        'funding_fee_profit': close_trade['funding_fee_profit']
+                    }
+                    closed_positions.append(export_record)
+        
+        if not closed_positions:
+            return jsonify({'error': 'No closed trades to export'}), 404
+        
+        # 按平倉時間排序
+        closed_positions.sort(key=lambda x: x.get('close_time', x.get('timestamp_utc', '')), reverse=True)
+        
+        # 生成 CSV 內容
+        from io import StringIO
+        output = StringIO()
+        
+        if closed_positions:
+            fieldnames = closed_positions[0].keys()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(closed_positions)
+        
+        csv_content = output.getvalue()
+        output.close()
+        
+        # 生成檔案名
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'closed_trades_export_{timestamp}.csv'
+        
+        # 返回 CSV 檔案
+        response = make_response(csv_content)
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        
+        logging.info(f"Exported {len(closed_positions)} closed trades to {filename}")
+        return response
+        
+    except Exception as e:
+        logging.error(f"Error exporting closed trades: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/raw-data/<symbol>')
 def get_raw_data(symbol):
     """API endpoint to get raw funding rate data for a specific symbol"""
@@ -427,6 +558,33 @@ def update_data():
     except Exception as e:
         logging.error(f"Error updating data: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/last-update')
+def get_last_update():
+    """API endpoint to get last update time"""
+    try:
+        # Check if analysis file exists and get its modification time
+        if os.path.exists(ANALYSIS_JSON):
+            mtime = os.path.getmtime(ANALYSIS_JSON)
+            last_update = datetime.fromtimestamp(mtime)
+            return jsonify({
+                'last_update': last_update.isoformat(),
+                'last_update_formatted': last_update.strftime('%Y-%m-%d %H:%M:%S UTC'),
+                'has_data': True
+            })
+        else:
+            return jsonify({
+                'last_update': None,
+                'last_update_formatted': '無數據',
+                'has_data': False
+            })
+    except Exception as e:
+        logging.error(f"Error getting last update time: {e}")
+        return jsonify({
+            'last_update': None,
+            'last_update_formatted': '錯誤',
+            'has_data': False
+        })
 
 # --- Configuration Management API Endpoints ---
 @app.route('/config')

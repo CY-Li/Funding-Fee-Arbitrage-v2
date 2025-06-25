@@ -60,4 +60,9 @@ trading_history_backup*.csv
 # status_check.py - removed
 # init_deployment.py - removed
 # deploy_check*.py - removed
-# DEPLOYMENT_CHECK.md - removed 
+# DEPLOYMENT_CHECK.md - removed
+
+# Test and export files
+test_export_clear.py
+test_export_*.csv
+closed_trades_export_*.csv 

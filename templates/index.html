@@ -171,6 +171,15 @@
                 
                 <!-- 已平倉交易 -->
                 <div class="tab-pane fade" id="closed" role="tabpanel">
+                    <!-- 操作按鈕 -->
+                    <div class="d-flex justify-content-end mb-3 p-3" style="background-color: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                        <button class="btn btn-outline-danger me-2" onclick="clearClosedTrades()">
+                            <i class="fas fa-trash"></i> 清空已平倉交易
+                        </button>
+                        <button class="btn btn-outline-success" onclick="exportClosedTrades()">
+                            <i class="fas fa-download"></i> 匯出已平倉交易
+                        </button>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-striped table-hover mb-0">
                             <thead id="closed-positions-header">
@@ -418,6 +427,73 @@
         // 初始更新和定時更新
         updateData();
         setInterval(updateData, 30000);
+
+        // 清空已平倉交易
+        async function clearClosedTrades() {
+            if (!confirm('確定要清空所有已平倉交易記錄嗎？此操作無法撤銷。')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/clear-closed-trades', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(result.message);
+                    // 重新載入數據
+                    updateData();
+                } else {
+                    alert('清空失敗：' + (result.error || '未知錯誤'));
+                }
+            } catch (error) {
+                console.error('清空已平倉交易錯誤:', error);
+                alert('清空失敗：' + error.message);
+            }
+        }
+
+        // 匯出已平倉交易
+        async function exportClosedTrades() {
+            try {
+                const response = await fetch('/api/export-closed-trades');
+                
+                if (response.ok) {
+                    // 獲取檔案名
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'closed_trades_export.csv';
+                    if (contentDisposition) {
+                        const filenameMatch = contentDisposition.match(/filename=(.+)/);
+                        if (filenameMatch) {
+                            filename = filenameMatch[1];
+                        }
+                    }
+                    
+                    // 下載檔案
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    alert('已平倉交易記錄已成功匯出！');
+                } else {
+                    const errorData = await response.json();
+                    alert('匯出失敗：' + (errorData.error || '未知錯誤'));
+                }
+            } catch (error) {
+                console.error('匯出已平倉交易錯誤:', error);
+                alert('匯出失敗：' + error.message);
+            }
+        }
     </script>
 </body>
 </html> 
