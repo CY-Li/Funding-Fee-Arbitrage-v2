@@ -50,6 +50,7 @@ config_update.timestamp
 .env
 
 # Data files (exclude large files)
+trading_history.csv
 all_funding_rates.csv
 analysis_summary.json
 
